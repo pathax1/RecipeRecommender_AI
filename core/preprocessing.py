@@ -7,23 +7,23 @@ class RecipePreprocessor:
         self.output_path = output_path
 
     def load_data(self):
-        print(f"📥 Loading data from {self.input_path}")
+        print(f" Loading data from {self.input_path}")
         self.data = pd.read_csv(self.input_path)
 
     def clean_data(self):
-        print("🧹 Cleaning data (removing rows with empty values)...")
+        print(" Cleaning data (removing rows with empty values)...")
         self.data.dropna(inplace=True)
 
     def preprocess_ingredients(self):
-        print("🔪 Preprocessing ingredients (lowercase + separator cleanup)...")
+        print(" Preprocessing ingredients (lowercase + separator cleanup)...")
         self.data['ingredients'] = self.data['ingredients'].apply(lambda x: " | ".join(x.lower().split('|')))
 
     def preprocess_instructions(self):
-        print("📖 Preprocessing instructions (strip + capitalize)...")
+        print(" Preprocessing instructions (strip + capitalize)...")
         self.data['instructions'] = self.data['instructions'].apply(lambda x: x.strip().capitalize())
 
     def save_cleaned_data(self):
-        print(f"💾 Saving cleaned data to {self.output_path}")
+        print(f" Saving cleaned data to {self.output_path}")
         os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
         self.data.to_csv(self.output_path, index=False)
 

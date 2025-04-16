@@ -1,6 +1,7 @@
 [theme]
-primaryColor = "#3D9970"
-backgroundColor = "#f8f5f0"
-secondaryBackgroundColor = "#ffffff"
-textColor = "#222222"
-font = "sans serif"
+base="dark"
+primaryColor="#FF9800"                # warm orange for buttons/sliders
+backgroundColor="#0E1117"             # deep dark background
+secondaryBackgroundColor="#262730"    # for sidebars and containers
+textColor="#FAFAFA"                   # light text
+font="sans serif"

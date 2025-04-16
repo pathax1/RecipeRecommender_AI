@@ -99,17 +99,25 @@ class RecipeModelPipeline:
             user_data = df[df["author"] == user_id]
             predictions = []
             actuals = []
+
             for _, row in user_data.iterrows():
-                idx = df[df['title'] == row['title']].index[0]
+                match = df[df['title'] == row['title']]
+                if match.empty:
+                    continue
+                idx = df.index.get_loc(match.index[0])
+
                 sim_scores = list(enumerate(similarity_matrix[idx]))
                 sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
+
                 for i, _ in sim_scores[1:]:
                     if df.iloc[i]['title'] != row['title']:
                         predictions.append(df.iloc[i]['rating'])
                         actuals.append(row['rating'])
                         break
+
             if not predictions:
                 return None
+
             return round(sqrt(mean_squared_error(actuals, predictions)), 4)
 
         sample_users = df['author'].dropna().unique()[:10]

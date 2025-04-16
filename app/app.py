@@ -11,13 +11,13 @@ import pandas as pd
 from core.recommender import RecipeRecommender
 from core.model_pipeline import RecipeModelPipeline
 import requests
-from bs4 import BeautifulSoup
 import json
 import urllib.parse
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # Theme & Title
+st.set_page_config(layout="wide", page_title="AI Recipe Recommender", page_icon="🍽️")
 st.markdown("## 🍽️ AI-Powered Recipe Recommender")
 st.markdown("*Get delicious suggestions tailored to your taste!*")
 st.markdown("---")
@@ -81,7 +81,7 @@ if search_selection:
     query_vec = tfidf.transform([search_selection])
     similarity_scores = cosine_similarity(query_vec, tfidf_matrix).flatten()
     top_indices = similarity_scores.argsort()[-top_n:][::-1]
-    search_results = data.iloc[top_indices]["title"].tolist()
+    search_results = data.iloc[top_indices]["title"].drop_duplicates().tolist()
 
     cols = st.columns(3)
     for idx, title in enumerate(search_results):
@@ -99,6 +99,32 @@ if search_selection:
                 if st.button(f"👀 View Recipe: {title}", key=f"search_click_{idx}"):
                     log_entries.append({"user": selected_author, "title": title, "timestamp": datetime.now()})
                     triggered_recommendation = title
+                with st.expander("📋 View Full Recipe Details"):
+                    row = data[data['title'] == title].iloc[0]
+
+                    # Format ingredients line by line
+                    ingredients = row.get('ingredients', 'N/A')
+                    formatted_ingredients = "\n".join(
+                        f"- {item.strip()}" for item in ingredients.split("|")) if isinstance(ingredients,
+                                                                                              str) else "N/A"
+
+                    # Format instructions line by line
+                    instructions = row.get('instructions', 'N/A')
+                    formatted_instructions = "\n".join(f"{idx + 1}. {step.strip().capitalize()}" for idx, step in
+                                                       enumerate(instructions.split("|"))) if isinstance(instructions,
+                                                                                                         str) else "N/A"
+
+                    # Display in Streamlit
+                    st.markdown("**🧂 Ingredients:**")
+                    st.markdown(formatted_ingredients)
+
+                    st.markdown("**📝 Instructions:**")
+                    st.markdown(formatted_instructions)
+
+                    st.markdown(f"**⏱️ Prep:** {row.get('prep_time', 'N/A')}  \n"
+                                f"**🔥 Cook:** {row.get('cook_time', 'N/A')}  \n"
+                                f"**⏳ Total:** {row.get('total_time', 'N/A')}")
+
             else:
                 st.info("No video found")
             st.markdown("---")
@@ -106,15 +132,29 @@ if search_selection:
 # Trigger new recommendations if recipe clicked
 if triggered_recommendation:
     st.markdown(f"### 📌 Because you clicked on: {triggered_recommendation}")
-    tfidf = TfidfVectorizer(stop_words='english')
-    tfidf_matrix = tfidf.fit_transform(data["title"])
-    query_vec = tfidf.transform([triggered_recommendation])
-    similarity_scores = cosine_similarity(query_vec, tfidf_matrix).flatten()
-    top_indices = similarity_scores.argsort()[-top_n:][::-1]
-    related_titles = data.iloc[top_indices]["title"].tolist()
+
+    if model_type == "Neural Collaborative Filtering":
+        recommendations = recommender.get_recommendations_for_user(selected_author, top_n)
+    elif model_type == "Content-Based Filtering":
+        tfidf = TfidfVectorizer(stop_words='english')
+        tfidf_matrix = tfidf.fit_transform(data["title"])
+        query_vec = tfidf.transform([triggered_recommendation])
+        similarity_scores = cosine_similarity(query_vec, tfidf_matrix).flatten()
+        top_indices = similarity_scores.argsort()[-top_n:][::-1]
+        recommendations = data.iloc[top_indices]["title"].drop_duplicates().tolist()
+    else:  # Collaborative Filtering
+        user_item_matrix = data.pivot_table(index="author", columns="title", values="rating").fillna(0)
+        item_similarity = cosine_similarity(user_item_matrix.T)
+        np.fill_diagonal(item_similarity, 0)
+        sim_df = pd.DataFrame(item_similarity, index=user_item_matrix.columns, columns=user_item_matrix.columns)
+        if triggered_recommendation in sim_df:
+            sim_scores = sim_df[triggered_recommendation].sort_values(ascending=False)
+            recommendations = sim_scores.head(top_n).index.tolist()
+        else:
+            recommendations = []
 
     cols = st.columns(3)
-    for idx, title in enumerate(related_titles):
+    for idx, title in enumerate(recommendations):
         col = cols[idx % 3]
         with col:
             st.markdown(f"### 🍲 {title}")
@@ -128,7 +168,32 @@ if triggered_recommendation:
                 st.markdown(f"[📤 Share on WhatsApp]({whatsapp_url})", unsafe_allow_html=True)
             else:
                 st.info("No video found")
-            st.markdown("---")
+            with st.expander("📋 View Full Recipe Details"):
+                row = data[data['title'] == title].iloc[0]
+
+                # Format ingredients line by line
+                ingredients = row.get('ingredients', 'N/A')
+                formatted_ingredients = "\n".join(f"- {item.strip()}" for item in ingredients.split("|")) if isinstance(
+                    ingredients, str) else "N/A"
+
+                # Format instructions line by line
+                instructions = row.get('instructions', 'N/A')
+                formatted_instructions = "\n".join(f"{idx + 1}. {step.strip().capitalize()}" for idx, step in
+                                                   enumerate(instructions.split("|"))) if isinstance(instructions,
+                                                                                                     str) else "N/A"
+
+                # Display in Streamlit
+                st.markdown("**🧂 Ingredients:**")
+                st.markdown(formatted_ingredients)
+
+                st.markdown("**📝 Instructions:**")
+                st.markdown(formatted_instructions)
+
+                st.markdown(f"**⏱️ Prep:** {row.get('prep_time', 'N/A')}  \n"
+                            f"**🔥 Cook:** {row.get('cook_time', 'N/A')}  \n"
+                            f"**⏳ Total:** {row.get('total_time', 'N/A')}")
+
+        st.markdown("---")
 
 # RMSE Comparison Button
 st.markdown("---")
